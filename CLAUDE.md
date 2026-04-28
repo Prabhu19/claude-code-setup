@@ -1,11 +1,11 @@
 # CLAUDE.md
 
-Personal Claude Code config toolkit published to PyPI as `claude-code-setup`. Components live under `src/claude_code_setup/components/`, each with a `component.json` manifest.
+Personal Claude Code config toolkit published to PyPI as `claude-code-setup`. Components live under `src/components/`, each with a `component.json` manifest.
 
 ## Layout
 
 ```
-src/claude_code_setup/
+src/
   cli.py               ← entry point (discover + install components)
   components/<name>/
     component.json     ← files to copy + settings.json keys to patch
@@ -36,7 +36,7 @@ uv publish
 
 ## Adding a component
 
-Create `src/claude_code_setup/components/<name>/component.json`:
+Create `src/components/<name>/component.json`:
 
 ```json
 {

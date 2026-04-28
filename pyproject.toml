@@ -11,10 +11,13 @@ readme = "README.md"
 license = { text = "MIT" }
 
 [project.scripts]
-claude-code-setup = "claude_code_setup.cli:main"
+claude-code-setup = "cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/claude_code_setup"]
+packages = ["src/components"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/cli.py" = "cli.py"
 
 [tool.ruff]
 line-length = 100
