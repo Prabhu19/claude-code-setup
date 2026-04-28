@@ -1,0 +1,18 @@
+{
+  "name": "statusline",
+  "description": "5-row status bar + subagent panel — git, context, cost, rate limits, last message",
+  "files": [
+    "statusline.py",
+    "subagent_statusline.py"
+  ],
+  "settings": {
+    "statusLine": {
+      "type": "command",
+      "command": "{runner} {dest}/statusline.py"
+    },
+    "subagentStatusLine": {
+      "type": "command",
+      "command": "{runner} {dest}/subagent_statusline.py"
+    }
+  }
+}
