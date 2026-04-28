@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "claude-code-setup"
+version = "0.1.1"
+description = "Install and manage Claude Code components (status line, hooks, etc.)"
+requires-python = ">=3.10"
+readme = "README.md"
+license = { text = "MIT" }
+
+[project.scripts]
+claude-code-setup = "claude_code_setup.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/claude_code_setup"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["claude_code_setup"]
