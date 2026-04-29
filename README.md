@@ -9,6 +9,7 @@ A personal Claude Code configuration toolkit. Each component is self-contained a
 | Component | Description |
 |---|---|
 | `statusline` | 5-row status bar showing git state, context usage, session cost, rate limits, and last message |
+| `safety-gate` | PreToolUse hook that blocks destructive shell commands before they run |
 
 ---
 
@@ -56,6 +57,34 @@ Color coding: green = healthy · amber = needs attention · red = critical.
 ```bash
 uv run ~/.claude/statusline.py --help
 ```
+
+---
+
+### Safety gate
+
+A `PreToolUse` hook that intercepts every shell command Claude runs and blocks dangerous ones before they execute.
+
+**Blocked categories:**
+
+| Category | Examples blocked |
+|---|---|
+| Git | `git push --force`, `git reset --hard`, `git clean -f`, `git branch -D`, history rewrites |
+| File system | `rm -rf` on critical paths, `dd of=/dev/…`, `mkfs`, `chmod 777`, `chown -R … /` |
+| Network | `curl … \| bash`, `wget … \| sh`, `eval $(curl …)`, `source <(curl …)` |
+| SQL | `DROP TABLE`, `TRUNCATE`, `DELETE FROM` without WHERE, `ALTER TABLE … DROP COLUMN` |
+| MongoDB | `db.dropDatabase()`, `collection.drop()` |
+| Redis | `FLUSHALL`, `FLUSHDB`, `CONFIG REWRITE` |
+| Elasticsearch | `DELETE /<index>` |
+| Docker | `docker system prune`, bulk `rm`/`volume rm`/`network rm` via subshell |
+| Kubernetes | `kubectl delete --all`, `kubectl delete namespace`, `kubectl drain` |
+| Terraform | `terraform destroy`, `terraform state rm` |
+| AWS | Recursive S3 delete, `ec2 terminate-instances`, `rds delete-db-instance` |
+| GCP | `gcloud … delete` for projects, SQL, compute, container |
+| Heroku | `heroku apps:destroy` |
+| Shell | Fork bombs, `eval $(…)` |
+| System | `kill -9 1`, `crontab -r`, disabling critical services via `systemctl` |
+
+When a command is blocked, Claude sees `⛔ BLOCKED: <reason>` and must ask for explicit user approval before retrying.
 
 ---
 

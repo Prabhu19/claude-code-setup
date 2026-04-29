@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `safety-gate` component: PreToolUse hook that blocks destructive shell commands across git, file system, network, SQL, MongoDB, Redis, Elasticsearch, Docker, Kubernetes, Terraform, AWS, GCP, Heroku, and system categories
+- Merge-aware install/uninstall in `cli.py`: components can declare `"merge": [...]` keys in `component.json` to deep-merge settings instead of overwriting them
+
 ## [0.1.2] - 2026-04-29
 
 ### Added
