@@ -56,3 +56,28 @@ Color coding: green = healthy · amber = needs attention · red = critical.
 ```bash
 uv run ~/.claude/statusline.py --help
 ```
+
+---
+
+## Development
+
+**Set up the dev environment:**
+```bash
+just setup
+```
+
+**Run checks locally before committing:**
+```bash
+just lint      # Check code style
+just format    # Auto-fix code style
+just typecheck # Type checking
+just test      # Run tests
+just check     # Run all checks (lint + typecheck + test)
+```
+
+**Pre-commit hooks** automatically run on every commit. Install them with:
+```bash
+pre-commit install
+```
+
+**CI/CD** — GitHub Actions automatically runs tests and linting on every PR to `main`.
