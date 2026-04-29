@@ -22,8 +22,15 @@ def _match(pattern: str, cmd: str) -> bool:
 
 def _check_rm_rf(cmd: str) -> tuple[bool, str]:
     """Block rm -rf only on critical paths; allow build artifacts like ./dist."""
+    # Step 1: does the command contain rm with recursive + force flags in any order?
+    # Matches: rm -rf | rm -fr | rm -Rf | rm -rdf
+    # Skips early if no rm -rf variant is present — no need to check the path
     if not _match(r"\brm\s+-\S*[rR]\S*[fF]|\brm\s+-\S*[fF]\S*[rR]", cmd):
         return False, ""
+
+    # Step 2: is the target a critical path?
+    # Blocks: absolute paths (/etc, /var), home (~/, $HOME), and sensitive dirs (.git, .env, .ssh, node_modules)
+    # Allows: relative paths like ./dist or build/ — safe local build artifacts
     critical = _match(
         r"(?:^|\s)(?:"
         r"/(?:[^\s./]|\s|$)"  # absolute path (including bare /)
