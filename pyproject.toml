@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "claude-code-setup"
-version = "0.1.1"
+version = "0.1.2"
 description = "Install and manage Claude Code components (status line, hooks, etc.)"
 requires-python = ">=3.10"
 readme = "README.md"
