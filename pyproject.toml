@@ -27,6 +27,9 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
 ]
 repository = "https://github.com/Prabhu19/claude-code-setup"
+dependencies = [
+    "deepmerge>=2.0",
+]
 
 [project.optional-dependencies]
 dev = [

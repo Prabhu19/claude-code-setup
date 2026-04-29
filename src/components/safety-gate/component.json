@@ -1,0 +1,21 @@
+{
+  "name": "safety-gate",
+  "description": "PreToolUse hook that blocks destructive commands — git force-push, rm -rf critical paths, DROP TABLE, curl|bash, terraform destroy, and more",
+  "files": ["safety-gate.py"],
+  "merge": ["hooks"],
+  "settings": {
+    "hooks": {
+      "PreToolUse": [
+        {
+          "matcher": "Bash",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "{runner} {dest}/safety-gate.py"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

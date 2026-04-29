@@ -23,8 +23,25 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from deepmerge import Merger
+
 CLAUDE_DIR = Path.home() / ".claude"
 SETTINGS = CLAUDE_DIR / "settings.json"
+
+
+# List merge strategy for deepmerge: append items from `nxt` that don't already exist in `base`.
+# Items are compared by their JSON representation to handle dicts/lists inside lists.
+# Example: [1, 2] + [2, 3] → [1, 2, 3]  (2 is not duplicated)
+def _dedupe_append(config: Any, path: Any, base: list[Any], nxt: list[Any]) -> list[Any]:
+    seen = {json.dumps(i, sort_keys=True) for i in base}
+    return base + [i for i in nxt if json.dumps(i, sort_keys=True) not in seen]
+
+
+# Merger config: (type, strategy) pairs, then fallback for unknown types, then fallback for type conflicts.
+# - list  → _dedupe_append: append without duplicates
+# - dict  → "merge": recurse into keys and merge deeply
+# - anything else (str, int, …) → "override": new value wins
+_merger = Merger([(list, _dedupe_append), (dict, "merge")], ["override"], ["override"])
 
 
 def _detect_runner() -> str:
@@ -59,6 +76,24 @@ def _expand(value: object, placeholders: dict[str, str]) -> object:
     return value
 
 
+def _remove_merged(existing: Any, to_remove: Any) -> Any:
+    """Remove entries from existing that match to_remove."""
+    if isinstance(existing, dict) and isinstance(to_remove, dict):
+        result = dict(existing)
+        for k, v in to_remove.items():
+            if k in result:
+                cleaned = _remove_merged(result[k], v)
+                if not cleaned:
+                    del result[k]
+                else:
+                    result[k] = cleaned
+        return result
+    if isinstance(existing, list) and isinstance(to_remove, list):
+        remove_keys = {json.dumps(item, sort_keys=True) for item in to_remove}
+        return [item for item in existing if json.dumps(item, sort_keys=True) not in remove_keys]
+    return existing
+
+
 def load_settings() -> dict[str, Any]:
     if not SETTINGS.exists():
         return {}
@@ -82,12 +117,20 @@ def install_component(component: dict[str, Any], runner: str) -> None:
         print(f"  Copied   {filename} → {dest}")
 
     settings = load_settings()
+    merge_keys = set(component.get("merge", []))
     changed = False
+
     for key, value in component.get("settings", {}).items():
         expanded = _expand(value, placeholders)
-        if settings.get(key) != expanded:
-            settings[key] = expanded
-            changed = True
+        if key in merge_keys and key in settings:
+            merged = _merger.merge(settings[key], expanded)
+            if settings[key] != merged:
+                settings[key] = merged
+                changed = True
+        else:
+            if settings.get(key) != expanded:
+                settings[key] = expanded
+                changed = True
 
     if changed:
         save_settings(settings)
@@ -95,7 +138,8 @@ def install_component(component: dict[str, Any], runner: str) -> None:
         print("  settings.json already up-to-date")
 
 
-def uninstall_component(component: dict[str, Any]) -> None:
+def uninstall_component(component: dict[str, Any], runner: str) -> None:
+    placeholders = {"dest": str(CLAUDE_DIR), "runner": runner}
     removed = False
 
     for filename in component.get("files", []):
@@ -106,9 +150,22 @@ def uninstall_component(component: dict[str, Any]) -> None:
             removed = True
 
     settings = load_settings()
+    merge_keys = set(component.get("merge", []))
     changed = False
-    for key in component.get("settings", {}):
-        if key in settings:
+
+    for key, value in component.get("settings", {}).items():
+        if key not in settings:
+            continue
+        if key in merge_keys:
+            expanded = _expand(value, placeholders)
+            cleaned = _remove_merged(settings[key], expanded)
+            if cleaned != settings[key]:
+                if cleaned:
+                    settings[key] = cleaned
+                else:
+                    del settings[key]
+                changed = True
+        else:
             del settings[key]
             changed = True
 
@@ -166,7 +223,7 @@ def main() -> None:
     for name, component in targets.items():
         print(f"{action} [{name}]  {component.get('description', '')}")
         if args.uninstall:
-            uninstall_component(component)
+            uninstall_component(component, runner)
         else:
             install_component(component, runner)
         print()
