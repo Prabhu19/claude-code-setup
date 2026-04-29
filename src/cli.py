@@ -23,7 +23,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from deepmerge import Merger
+from deepmerge import Merger  # type: ignore[attr-defined]
 
 CLAUDE_DIR = Path.home() / ".claude"
 SETTINGS = CLAUDE_DIR / "settings.json"

@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from typing import Any
 
 
 def _match(pattern: str, cmd: str) -> bool:
@@ -506,7 +507,7 @@ _RULES: list[tuple[str, str]] = [
 
 def main() -> None:
     try:
-        hook_input: dict = json.loads(sys.stdin.readline())
+        hook_input: dict[str, Any] = json.loads(sys.stdin.readline())
         cmd: str = (
             hook_input.get("tool_input", {}).get("command")
             or hook_input.get("command")
