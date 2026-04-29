@@ -7,6 +7,7 @@ Claude Code safety gate — blocks destructive commands before they run.
 
 Installed as a PreToolUse hook. Reads JSON from stdin, exits 0 (allow) or 2 (block).
 """
+
 from __future__ import annotations
 
 import json
@@ -26,7 +27,7 @@ def _check_rm_rf(cmd: str) -> tuple[bool, str]:
     critical = _match(
         r"(?:^|\s)(?:"
         r"/(?:[^\s./]|\s|$)"  # absolute path (including bare /)
-        r"|~/|~(?:\s|$)"      # home shorthand
+        r"|~/|~(?:\s|$)"  # home shorthand
         r"|\$(?:HOME|\{HOME\})"
         r"|\.git(?:/|\s|$)"
         r"|\.env(?:/|\s|$)"
@@ -36,7 +37,10 @@ def _check_rm_rf(cmd: str) -> tuple[bool, str]:
         cmd,
     )
     if critical:
-        return True, "Destructive rm on a critical path (root, home, .git, .env, .ssh, node_modules)."
+        return (
+            True,
+            "Destructive rm on a critical path (root, home, .git, .env, .ssh, node_modules).",
+        )
     return False, ""
 
 
@@ -44,7 +48,6 @@ _COMPOUND_CHECKS = [_check_rm_rf]
 
 
 _RULES: list[tuple[str, str]] = [
-
     # Git
     (
         # Matches
@@ -121,7 +124,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bgit\s+gc\b.*--prune=now\b",
         "Aggressive GC with --prune=now discards unreachable objects immediately.",
     ),
-
     # File system
     (
         # Matches
@@ -180,7 +182,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bshred\b.*(?:\.env|id_rsa|credentials|secrets?)\b",
         "Securely deleting credentials requires explicit user approval.",
     ),
-
     # Network / supply-chain
     (
         # Matches
@@ -215,7 +216,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bsource\b.*<\s*\(\s*(?:curl|wget)\b",
         "Sourcing a download is a supply-chain risk.",
     ),
-
     # SQL
     (
         # Matches
@@ -250,7 +250,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bALTER\s+TABLE\b.*\bDROP\s+COLUMN\b",
         "Dropping a column is irreversible without a prior backup.",
     ),
-
     # MongoDB
     (
         # Matches
@@ -267,7 +266,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bcollection\b.*\.drop\(\)",
         "MongoDB collection.drop() destroys all documents in the collection.",
     ),
-
     # Redis
     (
         # Matches
@@ -284,7 +282,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bCONFIG\s+REWRITE\b",
         "Redis CONFIG REWRITE modifies the server config file in place.",
     ),
-
     # Elasticsearch
     (
         # Matches
@@ -294,7 +291,6 @@ _RULES: list[tuple[str, str]] = [
         r"DELETE\s+/[^/\s]+\s*$",
         "Deleting an Elasticsearch index requires explicit user approval.",
     ),
-
     # Docker
     (
         # Matches
@@ -326,7 +322,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bdocker\s+network\s+rm\b.*\$\(",
         "Bulk network removal requires explicit user approval.",
     ),
-
     # Kubernetes
     (
         # Matches
@@ -360,7 +355,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bkubectl\s+drain\b",
         "kubectl drain evicts all pods from a node — requires explicit user approval.",
     ),
-
     # Terraform / OpenTofu
     (
         # Matches
@@ -379,7 +373,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bterraform\s+state\s+rm\b|\btofu\s+state\s+rm\b",
         "Removing Terraform state loses track of managed resources.",
     ),
-
     # AWS CLI
     (
         # Matches
@@ -418,7 +411,6 @@ _RULES: list[tuple[str, str]] = [
         r"\baws\s+lambda\s+delete-function\b",
         "Deleting a Lambda function requires explicit user approval.",
     ),
-
     # GCP
     (
         # Matches
@@ -430,7 +422,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bgcloud\s+(?:projects?|sql|compute|container)\s+delete\b",
         "GCP resource deletion requires explicit user approval.",
     ),
-
     # Heroku
     (
         # Matches
@@ -440,7 +431,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bheroku\s+apps?:destroy\b",
         "Heroku app destruction is irreversible.",
     ),
-
     # Privilege escalation
     (
         # Matches
@@ -459,7 +449,6 @@ _RULES: list[tuple[str, str]] = [
         r"\bvisudo\b",
         "Editing sudoers requires explicit user approval.",
     ),
-
     # Shell
     (
         # Matches
@@ -476,7 +465,6 @@ _RULES: list[tuple[str, str]] = [
         r"\beval\b\s+\$\(",
         "eval with command substitution is an arbitrary code execution risk.",
     ),
-
     # System
     (
         # Matches
@@ -509,9 +497,7 @@ def main() -> None:
     try:
         hook_input: dict[str, Any] = json.loads(sys.stdin.readline())
         cmd: str = (
-            hook_input.get("tool_input", {}).get("command")
-            or hook_input.get("command")
-            or ""
+            hook_input.get("tool_input", {}).get("command") or hook_input.get("command") or ""
         )
     except (json.JSONDecodeError, AttributeError):
         sys.exit(0)
