@@ -58,36 +58,40 @@ import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 # Colour palette (256-colour ANSI)
 # Single source of truth — change accent here, everything follows.
 
-RESET: str = '\033[0m'
-BOLD:  str = '\033[1m'
+RESET: str = "\033[0m"
+BOLD: str = "\033[1m"
+
 
 def _c(n: int) -> str:
-    return f'\033[38;5;{n}m'
+    return f"\033[38;5;{n}m"
+
 
 class Colors:
-    accent:  str = _c(74)   # steel-blue  — model name
-    gray:    str = _c(245)  # mid-gray    — labels
-    dim:     str = _c(238)  # dark-gray   — de-emphasised / separators
-    good:    str = _c(71)   # muted-green — healthy state
-    warn:    str = _c(136)  # amber       — needs attention
-    danger:  str = _c(167)  # muted-red   — critical
-    branch:  str = _c(37)   # teal        — git branch
+    accent: str = _c(74)  # steel-blue  — model name
+    gray: str = _c(245)  # mid-gray    — labels
+    dim: str = _c(238)  # dark-gray   — de-emphasised / separators
+    good: str = _c(71)  # muted-green — healthy state
+    warn: str = _c(136)  # amber       — needs attention
+    danger: str = _c(167)  # muted-red   — critical
+    branch: str = _c(37)  # teal        — git branch
     special: str = _c(139)  # lavender    — worktree / thinking
-    vim:     str = _c(66)   # teal-green  — vim mode indicator
+    vim: str = _c(66)  # teal-green  — vim mode indicator
 
 
 # Shared separators
 
-SEP: str = f'  {Colors.dim}│{RESET}  '   # between major sections on a row
-DOT: str = f'  {Colors.dim}·{RESET}  '   # between minor items on a row
+SEP: str = f"  {Colors.dim}│{RESET}  "  # between major sections on a row
+DOT: str = f"  {Colors.dim}·{RESET}  "  # between minor items on a row
 
 
 # Pure formatting helpers
 # Stateless functions — easy to test, easy to reuse.
+
 
 def color_for_pct(pct: int) -> str:
     """Map a percentage to a traffic-light colour."""
@@ -100,51 +104,51 @@ def color_for_pct(pct: int) -> str:
 
 def fmt_tokens(n: int) -> str:
     if n >= 1_000_000:
-        return f'{n / 1_000_000:.1f}M'
+        return f"{n / 1_000_000:.1f}M"
     if n >= 1_000:
-        return f'{n / 1_000:.0f}k'
+        return f"{n / 1_000:.0f}k"
     return str(n)
 
 
 def fmt_duration(ms: float) -> str:
     s: int = int(ms) // 1_000
     if s < 60:
-        return f'{s}s'
+        return f"{s}s"
     m, s = divmod(s, 60)
     if m < 60:
-        return f'{m}m {s:02d}s'
+        return f"{m}m {s:02d}s"
     h, m = divmod(m, 60)
-    return f'{h}h {m:02d}m'
+    return f"{h}h {m:02d}m"
 
 
 def fmt_cost(usd: float) -> str:
     if usd == 0:
-        return '$0.00'
+        return "$0.00"
     if usd < 0.005:
-        return '<$0.01'
+        return "<$0.01"
     if usd < 1:
-        return f'${usd:.2f}'
-    return f'${usd:.1f}'
+        return f"${usd:.2f}"
+    return f"${usd:.1f}"
 
 
 def fmt_time_until(epoch: float) -> str:
     delta: int = int(epoch - time.time())
     if delta <= 0:
-        return 'now'
+        return "now"
     if delta < 3_600:
-        return f'{delta // 60}m'
+        return f"{delta // 60}m"
     if delta < 86_400:
-        h: int = delta // 3_600
-        m: int = (delta % 3_600) // 60
-        return f'{h}h {m}m' if m else f'{h}h'
-    d: int = delta // 86_400
-    h: int = (delta % 86_400) // 3_600
-    return f'{d}d {h}h' if h else f'{d}d'
+        hours: int = delta // 3_600
+        minutes: int = (delta % 3_600) // 60
+        return f"{hours}h {minutes}m" if minutes else f"{hours}h"
+    days: int = delta // 86_400
+    hours = (delta % 86_400) // 3_600
+    return f"{days}d {hours}h" if hours else f"{days}d"
 
 
 def osc8_link(url: str, text: str) -> str:
     """OSC 8 hyperlink — clickable in iTerm2, Kitty, WezTerm."""
-    return f'\033]8;;{url}\a{text}\033]8;;\a'
+    return f"\033]8;;{url}\a{text}\033]8;;\a"
 
 
 def progress_bar(pct: int, width: int = 10) -> str:
@@ -153,15 +157,15 @@ def progress_bar(pct: int, width: int = 10) -> str:
     full-block when segment is fully consumed, half-block at the boundary.
     """
     color: str = color_for_pct(pct)
-    bar:   str = ''
+    bar: str = ""
     for i in range(width):
         remaining: int = pct - i * 10
         if remaining >= 8:
-            bar += f'{color}█{RESET}'
+            bar += f"{color}█{RESET}"
         elif remaining >= 3:
-            bar += f'{color}▄{RESET}'
+            bar += f"{color}▄{RESET}"
         else:
-            bar += f'{Colors.dim}░{RESET}'
+            bar += f"{Colors.dim}░{RESET}"
     return bar
 
 
@@ -169,36 +173,36 @@ def progress_bar(pct: int, width: int = 10) -> str:
 # Isolates all subprocess calls.  Cache key = session_id so concurrent sessions
 # in different repos never share stale state.
 
+
 @dataclass
 class GitInfo:
-    branch:      str  = ''
+    branch: str = ""
     # File state breakdown
-    staged:      int  = 0    # files with staged changes (index modified)
-    modified:    int  = 0    # files with unstaged modifications
-    untracked:   int  = 0    # new files not yet added
-    single_file: str  = ''   # populated when only 1 total changed file
+    staged: int = 0  # files with staged changes (index modified)
+    modified: int = 0  # files with unstaged modifications
+    untracked: int = 0  # new files not yet added
+    single_file: str = ""  # populated when only 1 total changed file
     # Remote sync
-    ahead:       int  = 0
-    behind:      int  = 0
-    fetch_ago:   str  = ''   # e.g. '5m', '2h'
+    ahead: int = 0
+    behind: int = 0
+    fetch_ago: str = ""  # e.g. '5m', '2h'
     no_upstream: bool = False
-    upstream:    str  = ''   # tracking branch, e.g. 'origin/main'
-    remote_url:  str  = ''   # HTTPS URL if origin is GitHub
+    upstream: str = ""  # tracking branch, e.g. 'origin/main'
+    remote_url: str = ""  # HTTPS URL if origin is GitHub
     # Extra context
-    stashes:     int  = 0    # number of stashed change sets
-    last_commit: str  = ''   # abbreviated last commit subject + relative time
-    git_state:   str  = ''   # 'MERGING', 'REBASING', 'CHERRY-PICKING', 'REVERTING', 'BISECTING'
+    stashes: int = 0  # number of stashed change sets
+    last_commit: str = ""  # abbreviated last commit subject + relative time
+    git_state: str = ""  # 'MERGING', 'REBASING', 'CHERRY-PICKING', 'REVERTING', 'BISECTING'
 
 
 def _run(cwd: str, *args: str) -> str:
     return subprocess.check_output(
-        ['git', '-C', cwd] + list(args),
-        text=True, stderr=subprocess.DEVNULL
+        ["git", "-C", cwd] + list(args), text=True, stderr=subprocess.DEVNULL
     ).strip()
 
 
 def _cache_path(session_id: str) -> str:
-    return f'/tmp/claude-sl-{session_id[:24]}'
+    return f"/tmp/claude-sl-{session_id[:24]}"
 
 
 def load_git_info(cwd: str, session_id: str, ttl: int = 5) -> GitInfo:
@@ -213,7 +217,7 @@ def load_git_info(cwd: str, session_id: str, ttl: int = 5) -> GitInfo:
 
     info: GitInfo = _fetch_git_info(cwd)
     try:
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             json.dump(info.__dict__, f)
     except Exception:
         pass
@@ -223,39 +227,41 @@ def load_git_info(cwd: str, session_id: str, ttl: int = 5) -> GitInfo:
 def _fetch_git_info(cwd: str) -> GitInfo:
     info: GitInfo = GitInfo()
     try:
-        _run(cwd, 'rev-parse', '--git-dir')
+        _run(cwd, "rev-parse", "--git-dir")
     except Exception:
         return info  # not a git repo
 
     try:
-        info.branch = _run(cwd, 'branch', '--show-current')
+        info.branch = _run(cwd, "branch", "--show-current")
     except Exception:
         pass
 
     try:
         lines: list[str] = [
-            ln for ln in
-            _run(cwd, '--no-optional-locks', 'status', '--porcelain', '-uall').splitlines()
+            ln
+            for ln in _run(
+                cwd, "--no-optional-locks", "status", "--porcelain", "-uall"
+            ).splitlines()
             if ln.strip()
         ]
-        staged:    int = 0
-        modified:  int = 0
+        staged: int = 0
+        modified: int = 0
         untracked: int = 0
         for ln in lines:
             if len(ln) < 2:
                 continue
             xy: str = ln[:2]
-            if xy == '??':
+            if xy == "??":
                 untracked += 1
-            elif xy == '!!':
+            elif xy == "!!":
                 pass  # ignored — skip
             else:
-                if xy[0] != ' ':
+                if xy[0] != " ":
                     staged += 1
-                if xy[1] not in (' ', '!'):
+                if xy[1] not in (" ", "!"):
                     modified += 1
-        info.staged    = staged
-        info.modified  = modified
+        info.staged = staged
+        info.modified = modified
         info.untracked = untracked
         total: int = staged + modified + untracked
         if total == 1:
@@ -264,47 +270,49 @@ def _fetch_git_info(cwd: str) -> GitInfo:
         pass
 
     try:
-        info.upstream = _run(cwd, 'rev-parse', '--abbrev-ref', '@{upstream}')
-        counts: list[str] = _run(cwd, 'rev-list', '--left-right', '--count', 'HEAD...@{upstream}').split()
-        info.ahead  = int(counts[0])
+        info.upstream = _run(cwd, "rev-parse", "--abbrev-ref", "@{upstream}")
+        counts: list[str] = _run(
+            cwd, "rev-list", "--left-right", "--count", "HEAD...@{upstream}"
+        ).split()
+        info.ahead = int(counts[0])
         info.behind = int(counts[1])
         info.fetch_ago = _fetch_age(cwd)
     except Exception:
         info.no_upstream = bool(info.branch)  # branch exists but no upstream configured
 
     try:
-        remote: str = _run(cwd, 'remote', 'get-url', 'origin')
-        remote = re.sub(r'^git@github\.com:', 'https://github.com/', remote)
-        remote = re.sub(r'\.git$', '', remote)
+        remote: str = _run(cwd, "remote", "get-url", "origin")
+        remote = re.sub(r"^git@github\.com:", "https://github.com/", remote)
+        remote = re.sub(r"\.git$", "", remote)
         info.remote_url = remote
     except Exception:
         pass
 
     # Stash count
     try:
-        stash_out: str = _run(cwd, 'stash', 'list')
+        stash_out: str = _run(cwd, "stash", "list")
         info.stashes = len([ln for ln in stash_out.splitlines() if ln.strip()])
     except Exception:
         pass
 
     # Last commit — subject + relative time
     try:
-        raw: str = _run(cwd, 'log', '-1', '--pretty=format:%s|%ar')
-        subject, when = raw.split('|', 1)
-        short: str = subject[:40] + ('…' if len(subject) > 40 else '')
-        info.last_commit = f'{short} · {when}'
+        raw: str = _run(cwd, "log", "-1", "--pretty=format:%s|%ar")
+        subject, when = raw.split("|", 1)
+        short: str = subject[:40] + ("…" if len(subject) > 40 else "")
+        info.last_commit = f"{short} · {when}"
     except Exception:
         pass
 
     # Special git state: merge, rebase, cherry-pick, etc.
-    git_dir: str = os.path.join(cwd, '.git')
+    git_dir: str = os.path.join(cwd, ".git")
     for marker, state in [
-        ('MERGE_HEAD',       'MERGING'),
-        ('rebase-merge',     'REBASING'),
-        ('rebase-apply',     'REBASING'),
-        ('CHERRY_PICK_HEAD', 'CHERRY-PICKING'),
-        ('REVERT_HEAD',      'REVERTING'),
-        ('BISECT_LOG',       'BISECTING'),
+        ("MERGE_HEAD", "MERGING"),
+        ("rebase-merge", "REBASING"),
+        ("rebase-apply", "REBASING"),
+        ("CHERRY_PICK_HEAD", "CHERRY-PICKING"),
+        ("REVERT_HEAD", "REVERTING"),
+        ("BISECT_LOG", "BISECTING"),
     ]:
         if os.path.exists(os.path.join(git_dir, marker)):
             info.git_state = state
@@ -314,39 +322,40 @@ def _fetch_git_info(cwd: str) -> GitInfo:
 
 
 def _fetch_age(cwd: str) -> str:
-    fh:  str   = os.path.join(cwd, '.git', 'FETCH_HEAD')
+    fh: str = os.path.join(cwd, ".git", "FETCH_HEAD")
     if not os.path.exists(fh):
-        return ''
+        return ""
     age: float = time.time() - os.path.getmtime(fh)
     if age < 60:
-        return '<1m'
+        return "<1m"
     if age < 3_600:
-        return f'{int(age / 60)}m'
+        return f"{int(age / 60)}m"
     if age < 86_400:
-        return f'{int(age / 3_600)}h'
-    return f'{int(age / 86_400)}d'
+        return f"{int(age / 3_600)}h"
+    return f"{int(age / 86_400)}d"
 
 
 # Data layer: context usage
 
+
 @dataclass
 class ContextInfo:
-    pct:       int  = 0
-    tokens:    int  = 0
-    max_ctx:   int  = 200_000
+    pct: int = 0
+    tokens: int = 0
+    max_ctx: int = 200_000
     estimated: bool = False  # True when no real API data yet
 
 
-def load_context_info(data: dict) -> ContextInfo:
+def load_context_info(data: dict[str, Any]) -> ContextInfo:
     """
     Prefer transcript-based count (includes system-prompt / tools / memory).
     Falls back to used_percentage from current_usage, then a 20k baseline.
     See: github.com/anthropics/claude-code/issues/13652
     """
-    ctx:     dict = data.get('context_window') or {}
-    max_ctx: int  = ctx.get('context_window_size') or 200_000
+    ctx: dict[str, Any] = data.get("context_window") or {}
+    max_ctx: int = ctx.get("context_window_size") or 200_000
 
-    transcript: str = data.get('transcript_path', '')
+    transcript: str = data.get("transcript_path", "")
     if transcript and os.path.isfile(transcript):
         tokens: int = _tokens_from_transcript(transcript)
         if tokens > 0:
@@ -356,13 +365,13 @@ def load_context_info(data: dict) -> ContextInfo:
                 max_ctx=max_ctx,
             )
 
-    raw_pct: int | None = ctx.get('used_percentage')
+    raw_pct: int | None = ctx.get("used_percentage")
     if raw_pct is not None:
-        current: dict = ctx.get('current_usage') or {}
-        tokens  = (
-            (current.get('input_tokens') or 0)
-            + (current.get('cache_creation_input_tokens') or 0)
-            + (current.get('cache_read_input_tokens') or 0)
+        current: dict[str, Any] = ctx.get("current_usage") or {}
+        tokens = (
+            (current.get("input_tokens") or 0)
+            + (current.get("cache_creation_input_tokens") or 0)
+            + (current.get("cache_read_input_tokens") or 0)
         )
         return ContextInfo(pct=min(100, int(raw_pct)), tokens=tokens, max_ctx=max_ctx)
 
@@ -378,16 +387,16 @@ def load_context_info(data: dict) -> ContextInfo:
 def _tokens_from_transcript(path: str) -> int:
     try:
         with open(path) as f:
-            items: list = [json.loads(ln) for ln in f if ln.strip()]
+            items: list[Any] = [json.loads(ln) for ln in f if ln.strip()]
         for item in reversed(items):
-            if item.get('isSidechain') or item.get('isApiErrorMessage'):
+            if item.get("isSidechain") or item.get("isApiErrorMessage"):
                 continue
-            usage: dict | None = (item.get('message') or {}).get('usage')
+            usage: dict[str, Any] | None = (item.get("message") or {}).get("usage")
             if usage:
                 return (
-                    (usage.get('input_tokens') or 0)
-                    + (usage.get('cache_read_input_tokens') or 0)
-                    + (usage.get('cache_creation_input_tokens') or 0)
+                    (usage.get("input_tokens") or 0)
+                    + (usage.get("cache_read_input_tokens") or 0)
+                    + (usage.get("cache_creation_input_tokens") or 0)
                 )
     except Exception:
         pass
@@ -402,30 +411,30 @@ def _tokens_from_transcript(path: str) -> int:
 Segment = Callable[..., str | None]
 
 
-def seg_model(data: dict) -> str | None:
-    model: str = (data.get('model') or {}).get('display_name', '?')
-    label: str = f'{Colors.accent}{BOLD}{model}{RESET}'
-    if name := data.get('session_name'):
-        label += f' {Colors.dim}[{name}]{RESET}'
-    if agent := (data.get('agent') or {}).get('name'):
-        label += f' {Colors.special}[{agent}]{RESET}'
+def seg_model(data: dict[str, Any]) -> str | None:
+    model: str = (data.get("model") or {}).get("display_name", "?")
+    label: str = f"{Colors.accent}{BOLD}{model}{RESET}"
+    if name := data.get("session_name"):
+        label += f" {Colors.dim}[{name}]{RESET}"
+    if agent := (data.get("agent") or {}).get("name"):
+        label += f" {Colors.special}[{agent}]{RESET}"
     return label
 
 
-def seg_directory(data: dict, git: GitInfo) -> str | None:
-    cwd:      str  = (data.get('workspace') or {}).get('current_dir') or data.get('cwd', '')
-    dir_name: str  = os.path.basename(cwd) if cwd else '?'
-    text:     str  = osc8_link(git.remote_url, dir_name) if git.remote_url else dir_name
-    added:    list = data.get('workspace', {}).get('added_dirs') or []
-    extra:    str  = f' {Colors.dim}+{len(added)} dirs{RESET}' if added else ''
-    return f'{Colors.gray}📁 {text}{extra}{RESET}'
+def seg_directory(data: dict[str, Any], git: GitInfo) -> str | None:
+    cwd: str = (data.get("workspace") or {}).get("current_dir") or data.get("cwd", "")
+    dir_name: str = os.path.basename(cwd) if cwd else "?"
+    text: str = osc8_link(git.remote_url, dir_name) if git.remote_url else dir_name
+    added: list[Any] = data.get("workspace", {}).get("added_dirs") or []
+    extra: str = f" {Colors.dim}+{len(added)} dirs{RESET}" if added else ""
+    return f"{Colors.gray}📁 {text}{extra}{RESET}"
 
 
 def seg_branch(git: GitInfo) -> str | None:
     if not git.branch:
         return None
-    state: str = f'  {Colors.danger}{BOLD}⚠ {git.git_state}{RESET}' if git.git_state else ''
-    return f'🔀 {Colors.branch}{git.branch}{RESET}{state}'
+    state: str = f"  {Colors.danger}{BOLD}⚠ {git.git_state}{RESET}" if git.git_state else ""
+    return f"🔀 {Colors.branch}{git.branch}{RESET}{state}"
 
 
 def seg_git_detail(git: GitInfo) -> str | None:
@@ -437,34 +446,34 @@ def seg_git_detail(git: GitInfo) -> str | None:
     # File state
     total: int = git.staged + git.modified + git.untracked
     if total == 1 and git.single_file:
-        parts.append(f'{Colors.warn}~ {git.single_file}{RESET}')
+        parts.append(f"{Colors.warn}~ {git.single_file}{RESET}")
     else:
         if git.staged:
-            parts.append(f'{Colors.good}+{git.staged} staged{RESET}')
+            parts.append(f"{Colors.good}+{git.staged} staged{RESET}")
         if git.modified:
-            parts.append(f'{Colors.warn}~{git.modified} modified{RESET}')
+            parts.append(f"{Colors.warn}~{git.modified} modified{RESET}")
         if git.untracked:
-            parts.append(f'{Colors.dim}?{git.untracked} untracked{RESET}')
+            parts.append(f"{Colors.dim}?{git.untracked} untracked{RESET}")
 
     # Sync with remote
     if git.ahead and git.behind:
-        parts.append(f'{Colors.warn}↑{git.ahead} ↓{git.behind}{RESET}')
+        parts.append(f"{Colors.warn}↑{git.ahead} ↓{git.behind}{RESET}")
     elif git.ahead:
-        parts.append(f'{Colors.good}↑{git.ahead} ahead{RESET}')
+        parts.append(f"{Colors.good}↑{git.ahead} ahead{RESET}")
     elif git.behind:
-        parts.append(f'{Colors.danger}↓{git.behind} behind{RESET}')
+        parts.append(f"{Colors.danger}↓{git.behind} behind{RESET}")
     elif git.fetch_ago:
-        parts.append(f'{Colors.dim}synced {git.fetch_ago} ago{RESET}')
+        parts.append(f"{Colors.dim}synced {git.fetch_ago} ago{RESET}")
     elif git.no_upstream:
-        parts.append(f'{Colors.dim}not pushed{RESET}')
+        parts.append(f"{Colors.dim}not pushed{RESET}")
 
     # Tracking branch
     if git.upstream:
-        parts.append(f'{Colors.dim}→ {git.upstream}{RESET}')
+        parts.append(f"{Colors.dim}→ {git.upstream}{RESET}")
 
     # Stash
     if git.stashes:
-        parts.append(f'{Colors.special}📦 {git.stashes} stashed{RESET}')
+        parts.append(f"{Colors.special}📦 {git.stashes} stashed{RESET}")
 
     # Last commit
     if git.last_commit:
@@ -473,193 +482,204 @@ def seg_git_detail(git: GitInfo) -> str | None:
     return DOT.join(parts) if parts else None
 
 
-def seg_worktree(data: dict) -> str | None:
-    wt:     dict       = data.get('worktree') or {}
-    name:   str | None = wt.get('name') or (data.get('workspace') or {}).get('git_worktree')
+def seg_worktree(data: dict[str, Any]) -> str | None:
+    wt: dict[str, Any] = data.get("worktree") or {}
+    name: str | None = wt.get("name") or (data.get("workspace") or {}).get("git_worktree")
     if not name:
         return None
-    branch: str = wt.get('branch', '')
-    extra:  str = f':{branch}' if branch else ''
-    return f'{Colors.special}⊙ worktree: {name}{extra}{RESET}'
+    branch: str = wt.get("branch", "")
+    extra: str = f":{branch}" if branch else ""
+    return f"{Colors.special}⊙ worktree: {name}{extra}{RESET}"
 
 
-def seg_effort(data: dict) -> str | None:
-    effort: str | None = (data.get('effort') or {}).get('level')
+def seg_effort(data: dict[str, Any]) -> str | None:
+    effort: str | None = (data.get("effort") or {}).get("level")
     if effort:
         ec: str = {
-            'low': Colors.dim, 'medium': Colors.gray,
-            'high': Colors.warn, 'xhigh': Colors.danger,
-            'max': Colors.danger + BOLD,
+            "low": Colors.dim,
+            "medium": Colors.gray,
+            "high": Colors.warn,
+            "xhigh": Colors.danger,
+            "max": Colors.danger + BOLD,
         }.get(effort, Colors.gray)
-        return f'{ec}⚡ {effort} reasoning{RESET}'
-    if (data.get('thinking') or {}).get('enabled'):
-        return f'{Colors.special}💭 extended thinking{RESET}'
+        return f"{ec}⚡ {effort} reasoning{RESET}"
+    if (data.get("thinking") or {}).get("enabled"):
+        return f"{Colors.special}💭 extended thinking{RESET}"
     return None
 
 
-def seg_vim(data: dict) -> str | None:
-    mode: str | None = (data.get('vim') or {}).get('mode')
+def seg_vim(data: dict[str, Any]) -> str | None:
+    mode: str | None = (data.get("vim") or {}).get("mode")
     if not mode:
         return None
     color: str = {
-        'NORMAL': Colors.vim, 'INSERT': Colors.good,
-        'VISUAL': Colors.warn, 'VISUAL LINE': Colors.warn,
+        "NORMAL": Colors.vim,
+        "INSERT": Colors.good,
+        "VISUAL": Colors.warn,
+        "VISUAL LINE": Colors.warn,
     }.get(mode, Colors.gray)
-    return f'{color}[{mode}]{RESET}'
+    return f"{color}[{mode}]{RESET}"
 
 
 def seg_context_bar(ctx: ContextInfo) -> str | None:
-    pct:      int        = ctx.pct
-    pc:       str        = color_for_pct(pct)
-    prefix:   str        = '~' if ctx.estimated else ''
-    bar:      str        = progress_bar(pct)
-    max_disp: str        = fmt_tokens(ctx.max_ctx)
+    pct: int = ctx.pct
+    pc: str = color_for_pct(pct)
+    prefix: str = "~" if ctx.estimated else ""
+    bar: str = progress_bar(pct)
+    max_disp: str = fmt_tokens(ctx.max_ctx)
     tok_disp: str | None = fmt_tokens(ctx.tokens) if ctx.tokens else None
 
-    label: str = f'{bar}  {pc}{prefix}{pct}% used{RESET}'
+    label: str = f"{bar}  {pc}{prefix}{pct}% used{RESET}"
     if tok_disp:
-        label += f'{Colors.gray}  ·  {tok_disp} of {max_disp} tokens{RESET}'
+        label += f"{Colors.gray}  ·  {tok_disp} of {max_disp} tokens{RESET}"
     return label
 
 
-def seg_cache_efficiency(data: dict) -> str | None:
+def seg_cache_efficiency(data: dict[str, Any]) -> str | None:
     """
     Show prompt cache hit rate when non-trivial.
     High hit rate (>70 %) = cheaper API calls; worth surfacing to developers.
     """
-    current:        dict = (data.get('context_window') or {}).get('current_usage') or {}
-    cache_read:     int  = current.get('cache_read_input_tokens') or 0
-    cache_creation: int  = current.get('cache_creation_input_tokens') or 0
-    input_tokens:   int  = current.get('input_tokens') or 0
-    total:          int  = input_tokens + cache_read + cache_creation
+    current: dict[str, Any] = (data.get("context_window") or {}).get("current_usage") or {}
+    cache_read: int = current.get("cache_read_input_tokens") or 0
+    cache_creation: int = current.get("cache_creation_input_tokens") or 0
+    input_tokens: int = current.get("input_tokens") or 0
+    total: int = input_tokens + cache_read + cache_creation
     if total < 1_000 or cache_read == 0:
         return None  # too little data or no cache activity
     hit_pct: int = int(cache_read * 100 / total)
-    color:   str = Colors.good if hit_pct >= 70 else Colors.warn if hit_pct >= 30 else Colors.gray
-    return f'{color}🗄 {hit_pct}% cached{RESET}'
+    color: str = Colors.good if hit_pct >= 70 else Colors.warn if hit_pct >= 30 else Colors.gray
+    return f"{color}🗄 {hit_pct}% cached{RESET}"
 
 
-def seg_output_tokens(data: dict) -> str | None:
+def seg_output_tokens(data: dict[str, Any]) -> str | None:
     """
     Show total tokens Claude has generated this session.
     Useful alongside input tokens to gauge conversation balance.
     """
-    total_out: int = (data.get('context_window') or {}).get('total_output_tokens') or 0
+    total_out: int = (data.get("context_window") or {}).get("total_output_tokens") or 0
     if not total_out:
         return None
-    return f'{Colors.dim}↳ {fmt_tokens(total_out)} generated{RESET}'
+    return f"{Colors.dim}↳ {fmt_tokens(total_out)} generated{RESET}"
 
 
-def seg_api_wait(data: dict) -> str | None:
+def seg_api_wait(data: dict[str, Any]) -> str | None:
     """
     API wait ratio: what fraction of session wall-clock time was waiting for the API.
     High ratio (>60 %) means the model is doing heavy lifting; useful context for debugging slowness.
     """
-    cost:     dict = data.get('cost') or {}
-    api_ms:   int  = cost.get('total_api_duration_ms') or 0
-    total_ms: int  = cost.get('total_duration_ms') or 0
+    cost: dict[str, Any] = data.get("cost") or {}
+    api_ms: int = cost.get("total_api_duration_ms") or 0
+    total_ms: int = cost.get("total_duration_ms") or 0
     if not api_ms or not total_ms or total_ms < 5_000:
         return None  # not enough data to be meaningful
     ratio: int = int(api_ms * 100 / total_ms)
     if ratio < 10:
         return None  # negligible — not worth showing
     color: str = Colors.warn if ratio > 70 else Colors.dim
-    return f'{color}⌛ {ratio}% API wait{RESET}'
+    return f"{color}⌛ {ratio}% API wait{RESET}"
 
 
-def seg_cwd_drift(data: dict) -> str | None:
+def seg_cwd_drift(data: dict[str, Any]) -> str | None:
     """
     Warn when the working directory has drifted from where Claude was launched.
     Helps catch accidental cd's mid-session.
     """
-    ws:          dict = data.get('workspace') or {}
-    project_dir: str  = ws.get('project_dir', '')
-    current_dir: str  = ws.get('current_dir', '')
+    ws: dict[str, Any] = data.get("workspace") or {}
+    project_dir: str = ws.get("project_dir", "")
+    current_dir: str = ws.get("current_dir", "")
     if not project_dir or not current_dir or project_dir == current_dir:
         return None
     short: str = os.path.basename(current_dir)
-    return f'{Colors.warn}⚠ cwd: {short}{RESET}'
+    return f"{Colors.warn}⚠ cwd: {short}{RESET}"
 
 
-def seg_exceeds_200k(data: dict) -> str | None:
-    if data.get('exceeds_200k_tokens'):
-        return f'{Colors.danger}{BOLD}⚠  exceeded 200k tokens{RESET}'
+def seg_exceeds_200k(data: dict[str, Any]) -> str | None:
+    if data.get("exceeds_200k_tokens"):
+        return f"{Colors.danger}{BOLD}⚠  exceeded 200k tokens{RESET}"
     return None
 
 
-def seg_cost(data: dict) -> str | None:
-    cost: float = (data.get('cost') or {}).get('total_cost_usd') or 0
+def seg_cost(data: dict[str, Any]) -> str | None:
+    cost: float = (data.get("cost") or {}).get("total_cost_usd") or 0
     if not cost:
         return None
-    return f'{Colors.warn}💰 {fmt_cost(cost)}{RESET}'
+    return f"{Colors.warn}💰 {fmt_cost(cost)}{RESET}"
 
 
-def seg_duration(data: dict) -> str | None:
-    ms: float = (data.get('cost') or {}).get('total_duration_ms') or 0
+def seg_duration(data: dict[str, Any]) -> str | None:
+    ms: float = (data.get("cost") or {}).get("total_duration_ms") or 0
     if not ms:
         return None
-    return f'{Colors.gray}⏱ {fmt_duration(ms)}{RESET}'
+    return f"{Colors.gray}⏱ {fmt_duration(ms)}{RESET}"
 
 
-def seg_lines(data: dict) -> str | None:
-    cost:    dict = data.get('cost') or {}
-    added:   int  = cost.get('total_lines_added') or 0
-    removed: int  = cost.get('total_lines_removed') or 0
+def seg_lines(data: dict[str, Any]) -> str | None:
+    cost: dict[str, Any] = data.get("cost") or {}
+    added: int = cost.get("total_lines_added") or 0
+    removed: int = cost.get("total_lines_removed") or 0
     if not added and not removed:
         return None
-    a: str = f'{Colors.good}+{added}{RESET}' if added else ''
-    r: str = f'{Colors.danger}-{removed}{RESET}' if removed else ''
-    return f'{a}  {r}'.strip() if (a or r) else None
+    a: str = f"{Colors.good}+{added}{RESET}" if added else ""
+    r: str = f"{Colors.danger}-{removed}{RESET}" if removed else ""
+    return f"{a}  {r}".strip() if (a or r) else None
 
 
-def seg_rate_limits(data: dict) -> list[str]:
+def seg_rate_limits(data: dict[str, Any]) -> list[str]:
     """Returns a list of rate-limit strings (may be empty)."""
-    rate:   dict      = data.get('rate_limits') or {}
+    rate: dict[str, Any] = data.get("rate_limits") or {}
     result: list[str] = []
-    for label, window in [('5-hour', 'five_hour'), ('7-day', 'seven_day')]:
-        w:         dict            = rate.get(window) or {}
-        pct:       float | None    = w.get('used_percentage')
+    for label, window in [("5-hour", "five_hour"), ("7-day", "seven_day")]:
+        w: dict[str, Any] = rate.get(window) or {}
+        pct: float | None = w.get("used_percentage")
         if pct is None:
             continue
-        pc:        str             = Colors.danger if pct >= 80 else Colors.warn if pct >= 50 else Colors.gray
-        resets:    float | None    = w.get('resets_at')
-        reset_str: str             = f', resets in {fmt_time_until(resets)}' if resets else ''
-        result.append(f'{pc}{label}: {pct:.0f}% used{reset_str}{RESET}')
+        pc: str = Colors.danger if pct >= 80 else Colors.warn if pct >= 50 else Colors.gray
+        resets: float | None = w.get("resets_at")
+        reset_str: str = f", resets in {fmt_time_until(resets)}" if resets else ""
+        result.append(f"{pc}{label}: {pct:.0f}% used{reset_str}{RESET}")
     return result
 
 
-def seg_version(data: dict) -> str | None:
-    v: str = data.get('version', '')
-    return f'{Colors.dim}v{v}{RESET}' if v else None
+def seg_version(data: dict[str, Any]) -> str | None:
+    v: str = data.get("version", "")
+    return f"{Colors.dim}v{v}{RESET}" if v else None
 
 
 def seg_last_message(transcript: str, max_len: int = 100) -> str | None:
     """Show the user's most recent message as conversation context."""
     if not transcript or not os.path.isfile(transcript):
         return None
-    skip: tuple[str, ...] = ('[Request interrupted', '[Request cancelled', '/statusline', '/init', '/help')
+    skip: tuple[str, ...] = (
+        "[Request interrupted",
+        "[Request cancelled",
+        "/statusline",
+        "/init",
+        "/help",
+    )
     try:
         with open(transcript) as f:
-            items: list = [json.loads(ln) for ln in f if ln.strip()]
+            items: list[Any] = [json.loads(ln) for ln in f if ln.strip()]
         for item in reversed(items):
-            if item.get('type') != 'user':
+            if item.get("type") != "user":
                 continue
-            content: str | list = (item.get('message') or {}).get('content', '')
+            content: str | list[Any] = (item.get("message") or {}).get("content", "")
             if isinstance(content, list):
-                text: str = ' '.join(p.get('text', '') for p in content if p.get('type') == 'text')
+                text: str = " ".join(p.get("text", "") for p in content if p.get("type") == "text")
             else:
                 text = str(content)
-            text = re.sub(r'\s+', ' ', text).strip()
+            text = re.sub(r"\s+", " ", text).strip()
             if text and not any(text.startswith(s) for s in skip):
                 if len(text) > max_len:
-                    text = text[:max_len - 1] + '…'
-                return f'{Colors.dim}💬 {text}{RESET}'
+                    text = text[: max_len - 1] + "…"
+                return f"{Colors.dim}💬 {text}{RESET}"
     except Exception:
         pass
     return None
 
 
 # Row assembly
+
 
 def build_row(segments: list[str | None], separator: str = SEP) -> str:
     """Join non-empty segments with separator."""
@@ -669,112 +689,121 @@ def build_row(segments: list[str | None], separator: str = SEP) -> str:
 def labeled(label: str, content: str, width: int = 8) -> str:
     """Prefix a row with a fixed-width dim label + separator."""
     pad: int = max(0, width - len(label))
-    return f'{Colors.dim}{label}{" " * pad}│{RESET}  {content}'
+    return f"{Colors.dim}{label}{' ' * pad}│{RESET}  {content}"
 
 
 # Help legend
 
-_ANSI_RE: re.Pattern[str] = re.compile(r'\033(?:\[[^m]*m|\][^\a]*\a)')
+_ANSI_RE: re.Pattern[str] = re.compile(r"\033(?:\[[^m]*m|\][^\a]*\a)")
 
 
 def _visual_len(s: str) -> int:
     """String length excluding ANSI escape sequences."""
-    return len(_ANSI_RE.sub('', s))
+    return len(_ANSI_RE.sub("", s))
 
 
 def print_help() -> None:
     """Print a color-coded field reference. Run:  python3 statusline.py --help"""
-    G:  str = Colors.good
-    Y:  str = Colors.warn
-    R:  str = Colors.danger
-    A:  str = Colors.accent
-    P:  str = Colors.special
+    G: str = Colors.good
+    Y: str = Colors.warn
+    R: str = Colors.danger
+    A: str = Colors.accent
+    P: str = Colors.special
     DM: str = Colors.dim
     GR: str = Colors.gray
-    B:  str = BOLD
+    B: str = BOLD
 
     def row(symbol: str, label: str, col: int = 32) -> None:
         pad: int = max(2, col - _visual_len(symbol))
-        print(f'  {symbol}{" " * pad}{GR}{label}{RESET}')
+        print(f"  {symbol}{' ' * pad}{GR}{label}{RESET}")
 
     print()
-    print(f'{A}{B}Claude Code Status Line — Field Reference{RESET}')
-    print(f'{DM}Run:  uv run statusline.py --help{RESET}')
+    print(f"{A}{B}Claude Code Status Line — Field Reference{RESET}")
+    print(f"{DM}Run:  uv run statusline.py --help{RESET}")
     print()
-    print(f'{DM}Each row is prefixed with a label showing its purpose:{RESET}')
-    print(f'  {DM}Session  │{RESET}  identity, branch, flags')
-    print(f'  {DM}Git      │{RESET}  file state, sync, stash, last commit')
-    print(f'  {DM}Context  │{RESET}  context window, cost, cache')
-    print(f'  {DM}Limits   │{RESET}  rate limits, version  (Pro/Max only)')
-    print(f'  {DM}Message  │{RESET}  last user message')
-    print()
-
-    print(f'{B}Session row{RESET}')
-    row(f'{A}{B}Claude Sonnet{RESET}',            'Active Claude model name')
-    row(f'{DM}[my-session]{RESET}',               'Custom session name (--name flag or /rename)')
-    row(f'{P}[security-reviewer]{RESET}',         'Agent name when running with --agent')
-    row(f'{GR}📁 project{RESET}',                 'Working directory — click to open GitHub in browser')
-    row(f'🔀 {_c(37)}main{RESET}',               'Git branch name')
-    row(f'{R}{B}⚠ MERGING{RESET}',               'Special git state: MERGING · REBASING · CHERRY-PICKING')
-    row(f'{P}⊙ my-feature{RESET}',               'Active git worktree (--worktree session)')
-    row(f'{Y}⚡ high reasoning{RESET}',           'Reasoning effort level: low · medium · high · xhigh · max')
-    row(f'{P}💭 extended thinking{RESET}',        'Extended thinking mode is on')
-    row(f'{_c(66)}[INSERT]{RESET}',              'Vim editor mode: NORMAL · INSERT · VISUAL')
+    print(f"{DM}Each row is prefixed with a label showing its purpose:{RESET}")
+    print(f"  {DM}Session  │{RESET}  identity, branch, flags")
+    print(f"  {DM}Git      │{RESET}  file state, sync, stash, last commit")
+    print(f"  {DM}Context  │{RESET}  context window, cost, cache")
+    print(f"  {DM}Limits   │{RESET}  rate limits, version  (Pro/Max only)")
+    print(f"  {DM}Message  │{RESET}  last user message")
     print()
 
-    print(f'{B}Git fields (shown inline on Session row){RESET}')
-    row(f'{G}✓ clean{RESET}',                    'Working tree is clean — no changes')
-    row(f'{G}+3 staged{RESET}',                   '3 files staged for commit (git add)')
-    row(f'{Y}~2 modified{RESET}',                 '2 files changed but not yet staged')
-    row(f'{DM}?1 untracked{RESET}',              '1 new file not tracked by git')
-    row(f'{G}↑2 ahead{RESET}',                   '2 local commits not yet pushed to remote')
-    row(f'{R}↓3 behind{RESET}',                  '3 remote commits not yet pulled')
-    row(f'{DM}synced 5m ago{RESET}',             'Time since last git fetch from remote')
-    row(f'{DM}not pushed{RESET}',                'Branch has no upstream tracking configured')
-    row(f'{P}📦 2 stashed{RESET}',               '2 stash entries saved (git stash)')
-    row(f'{DM}"Fix bug · 5 minutes ago"{RESET}', 'Last commit subject and when it was made')
+    print(f"{B}Session row{RESET}")
+    row(f"{A}{B}Claude Sonnet{RESET}", "Active Claude model name")
+    row(f"{DM}[my-session]{RESET}", "Custom session name (--name flag or /rename)")
+    row(f"{P}[security-reviewer]{RESET}", "Agent name when running with --agent")
+    row(f"{GR}📁 project{RESET}", "Working directory — click to open GitHub in browser")
+    row(f"🔀 {_c(37)}main{RESET}", "Git branch name")
+    row(f"{R}{B}⚠ MERGING{RESET}", "Special git state: MERGING · REBASING · CHERRY-PICKING")
+    row(f"{P}⊙ my-feature{RESET}", "Active git worktree (--worktree session)")
+    row(f"{Y}⚡ high reasoning{RESET}", "Reasoning effort level: low · medium · high · xhigh · max")
+    row(f"{P}💭 extended thinking{RESET}", "Extended thinking mode is on")
+    row(f"{_c(66)}[INSERT]{RESET}", "Vim editor mode: NORMAL · INSERT · VISUAL")
     print()
 
-    print(f'{B}Context row{RESET}')
-    row(f'{G}████{DM}░░░░░░{RESET} 42%',        'Context window bar — green < 70 % · amber < 90 % · red ≥ 90 %')
-    row(f'{GR}84k of 200k tokens{RESET}',        'Tokens currently in context / maximum window size')
-    row(f'{G}🗄 83% cached{RESET}',              'Cache hit rate — high = cheaper API calls from prompt caching')
-    row(f'{DM}↳ 21k generated{RESET}',           'Total tokens Claude has output across this session')
-    row(f'{R}{B}⚠ exceeded 200k{RESET}',        'Total tokens crossed 200k (fixed Anthropic threshold)')
-    row(f'{Y}💰 $0.08{RESET}',                   'Estimated session cost (client-side estimate)')
-    row(f'{GR}⏱ 5m 30s{RESET}',                 'Total elapsed time since session started')
-    row(f'{DM}⌛ 60% API wait{RESET}',           'Fraction of session spent waiting for Claude\'s response')
-    row(f'{G}+156{RESET} {R}-23{RESET}',         'Lines of code added / removed this session')
-    row(f'{Y}⚠ cwd: project{RESET}',             'Working directory drifted from where Claude was launched')
+    print(f"{B}Git fields (shown inline on Session row){RESET}")
+    row(f"{G}✓ clean{RESET}", "Working tree is clean — no changes")
+    row(f"{G}+3 staged{RESET}", "3 files staged for commit (git add)")
+    row(f"{Y}~2 modified{RESET}", "2 files changed but not yet staged")
+    row(f"{DM}?1 untracked{RESET}", "1 new file not tracked by git")
+    row(f"{G}↑2 ahead{RESET}", "2 local commits not yet pushed to remote")
+    row(f"{R}↓3 behind{RESET}", "3 remote commits not yet pulled")
+    row(f"{DM}synced 5m ago{RESET}", "Time since last git fetch from remote")
+    row(f"{DM}not pushed{RESET}", "Branch has no upstream tracking configured")
+    row(f"{P}📦 2 stashed{RESET}", "2 stash entries saved (git stash)")
+    row(f'{DM}"Fix bug · 5 minutes ago"{RESET}', "Last commit subject and when it was made")
     print()
 
-    print(f'{B}Limits row{RESET}  {DM}(Claude.ai Pro/Max only — omitted otherwise){RESET}')
-    row(f'{GR}5-hour: 23% used{RESET}',          '% of the 5-hour rolling rate limit consumed')
-    row(f'{GR}7-day: 41% used{RESET}',           '% of the 7-day rolling rate limit consumed')
-    row(f'{DM}resets in 2h{RESET}',              'Time until the rate limit window resets')
-    row(f'{DM}v2.1.90{RESET}',                   'Claude Code version')
+    print(f"{B}Context row{RESET}")
+    row(
+        f"{G}████{DM}░░░░░░{RESET} 42%",
+        "Context window bar — green < 70 % · amber < 90 % · red ≥ 90 %",
+    )
+    row(f"{GR}84k of 200k tokens{RESET}", "Tokens currently in context / maximum window size")
+    row(f"{G}🗄 83% cached{RESET}", "Cache hit rate — high = cheaper API calls from prompt caching")
+    row(f"{DM}↳ 21k generated{RESET}", "Total tokens Claude has output across this session")
+    row(f"{R}{B}⚠ exceeded 200k{RESET}", "Total tokens crossed 200k (fixed Anthropic threshold)")
+    row(f"{Y}💰 $0.08{RESET}", "Estimated session cost (client-side estimate)")
+    row(f"{GR}⏱ 5m 30s{RESET}", "Total elapsed time since session started")
+    row(f"{DM}⌛ 60% API wait{RESET}", "Fraction of session spent waiting for Claude's response")
+    row(f"{G}+156{RESET} {R}-23{RESET}", "Lines of code added / removed this session")
+    row(f"{Y}⚠ cwd: project{RESET}", "Working directory drifted from where Claude was launched")
     print()
 
-    print(f'{B}Message row{RESET}')
-    row(f'{DM}💬 your question…{RESET}',         'Your most recent prompt — quick reminder of conversation context')
+    print(f"{B}Limits row{RESET}  {DM}(Claude.ai Pro/Max only — omitted otherwise){RESET}")
+    row(f"{GR}5-hour: 23% used{RESET}", "% of the 5-hour rolling rate limit consumed")
+    row(f"{GR}7-day: 41% used{RESET}", "% of the 7-day rolling rate limit consumed")
+    row(f"{DM}resets in 2h{RESET}", "Time until the rate limit window resets")
+    row(f"{DM}v2.1.90{RESET}", "Claude Code version")
     print()
 
-    print(f'{DM}Colors:  {G}green{RESET}{DM} = healthy  ·  {Y}amber{RESET}{DM} = needs attention  ·  {R}red{RESET}{DM} = critical{RESET}')
+    print(f"{B}Message row{RESET}")
+    row(
+        f"{DM}💬 your question…{RESET}",
+        "Your most recent prompt — quick reminder of conversation context",
+    )
+    print()
+
+    print(
+        f"{DM}Colors:  {G}green{RESET}{DM} = healthy  ·  {Y}amber{RESET}{DM} = needs attention  ·  {R}red{RESET}{DM} = critical{RESET}"
+    )
     print()
 
 
 # Entry point
 
+
 def main() -> None:
-    if '--help' in sys.argv or '-h' in sys.argv:
+    if "--help" in sys.argv or "-h" in sys.argv:
         print_help()
         return
 
-    data: dict = json.load(sys.stdin)
+    data: dict[str, Any] = json.load(sys.stdin)
 
-    cwd:        str = (data.get('workspace') or {}).get('current_dir') or data.get('cwd', '')
-    session_id: str = data.get('session_id', 'default')
-    transcript: str = data.get('transcript_path', '')
+    cwd: str = (data.get("workspace") or {}).get("current_dir") or data.get("cwd", "")
+    session_id: str = data.get("session_id", "default")
+    transcript: str = data.get("transcript_path", "")
 
     git = load_git_info(cwd, session_id) if cwd else GitInfo()
     ctx = load_context_info(data)
@@ -782,45 +811,50 @@ def main() -> None:
     out = sys.stdout
 
     # Row 1  Session  — model · directory · branch · flags
-    row1: str = build_row([
-        seg_model(data),
-        seg_directory(data, git),
-        seg_branch(git),
-        seg_worktree(data),
-        seg_effort(data),
-        seg_vim(data),
-    ])
-    out.write(labeled('Session', row1) + '\n')
+    row1: str = build_row(
+        [
+            seg_model(data),
+            seg_directory(data, git),
+            seg_branch(git),
+            seg_worktree(data),
+            seg_effort(data),
+            seg_vim(data),
+        ]
+    )
+    out.write(labeled("Session", row1) + "\n")
 
     # Row 2  Git  — file state · sync · stash · last commit (omitted when not in a git repo)
     if git_row := seg_git_detail(git):
-        out.write(labeled('Git', git_row, width=8) + '\n')
+        out.write(labeled("Git", git_row, width=8) + "\n")
 
     # Row 3  Context  — context window, cost, cache, duration, lines
-    row2: str = build_row([
-        seg_context_bar(ctx),
-        seg_cache_efficiency(data),
-        seg_output_tokens(data),
-        seg_exceeds_200k(data),
-        seg_cost(data),
-        seg_duration(data),
-        seg_api_wait(data),
-        seg_lines(data),
-        seg_cwd_drift(data),
-    ], DOT)
-    out.write(labeled('Context', row2) + '\n')
+    row2: str = build_row(
+        [
+            seg_context_bar(ctx),
+            seg_cache_efficiency(data),
+            seg_output_tokens(data),
+            seg_exceeds_200k(data),
+            seg_cost(data),
+            seg_duration(data),
+            seg_api_wait(data),
+            seg_lines(data),
+            seg_cwd_drift(data),
+        ],
+        DOT,
+    )
+    out.write(labeled("Context", row2) + "\n")
 
     # Row 4  Limits   — rate limits + version (omitted when rate_limits absent)
-    rate_parts: list[str]  = seg_rate_limits(data)
-    version:    str | None = seg_version(data)
-    row4_items: list[str]  = rate_parts + ([version] if version else [])
+    rate_parts: list[str] = seg_rate_limits(data)
+    version: str | None = seg_version(data)
+    row4_items: list[str | None] = rate_parts + ([version] if version else [])  # type: ignore[assignment]
     if row4_items:
-        out.write(labeled('Limits', build_row(row4_items, DOT)) + '\n')
+        out.write(labeled("Limits", build_row(row4_items, DOT)) + "\n")
 
     # Row 5  Message  — last user message for quick context
     if msg := seg_last_message(transcript):
-        out.write(labeled('Message', msg) + '\n')
+        out.write(labeled("Message", msg) + "\n")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

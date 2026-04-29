@@ -8,7 +8,32 @@ version = "0.1.1"
 description = "Install and manage Claude Code components (status line, hooks, etc.)"
 requires-python = ">=3.10"
 readme = "README.md"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
+authors = [{ name = "Prabhu", email = "prabhu.cse35@gmail.com" }]
+keywords = ["claude", "claude-code", "statusline", "setup", "configuration"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: User Interfaces",
+]
+repository = "https://github.com/Prabhu19/claude-code-setup"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "mypy>=1.8.0",
+    "ruff>=0.3.0",
+]
 
 [project.scripts]
 claude-code-setup = "cli:main"
@@ -28,3 +53,22 @@ ignore = ["E501"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["claude_code_setup"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--verbose",
+]
+markers = [
+    "integration: integration tests",
+    "unit: unit tests",
+]
