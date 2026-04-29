@@ -154,7 +154,9 @@ def _remove_merged(existing: Any, to_remove: Any) -> Any:
         return result if result else None  # empty dict → signal deletion
     if isinstance(existing, list) and isinstance(to_remove, list):
         remove_keys = {json.dumps(item, sort_keys=True) for item in to_remove}
-        filtered: list[Any] = [item for item in existing if json.dumps(item, sort_keys=True) not in remove_keys]
+        filtered: list[Any] = [
+            item for item in existing if json.dumps(item, sort_keys=True) not in remove_keys
+        ]
         return filtered if filtered else None  # empty list → signal deletion
     # Type mismatch (e.g. dict vs list): no meaningful way to subtract, leave untouched.
     if type(existing) is not type(to_remove):
