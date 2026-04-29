@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-04-29
+
+### Added
+
+- Comprehensive test suite (73 tests for CLI and statusline components)
+- GitHub Actions CI/CD workflows for lint, tests, and publishing
+- Justfile with convenient development commands (setup, lint, format, typecheck, test, check, build, publish, clean)
+- Pre-commit hooks configuration with ruff and mypy validation
+- Development guide in README with setup and contribution instructions
+
+### Fixed
+
+- All 43 mypy type errors for strict type checking compliance
+- Type hints updated to use `dict[str, Any]` instead of bare `dict`
+- Variable naming conflicts in time formatting functions
+- GitHub Actions workflows now properly create virtual environment and handle uv dependencies
+
 ## [0.1.1] - 2024-04-28
 
 ### Added
